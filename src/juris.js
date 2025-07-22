@@ -1043,6 +1043,28 @@
             const tagName = Object.keys(vnode)[0];
             const props = vnode[tagName] || {};
 
+            // Check for dynamic component discovery via _component reference
+            if (!staticMode && props._component && typeof props._component === 'function') {
+                const componentFunction = props._component;
+                const componentName = tagName; // Use the tagName as the component name
+                
+                // Register the component if not already registered
+                if (!this.juris.componentManager.components.has(componentName)) {
+                    this.juris.componentManager.register(componentName, componentFunction);
+                    console.info(`Registered component: ${componentName}`);
+                }
+                
+                // Create clean props without the _component reference
+                const { _component, ...cleanProps } = props;
+                
+                // Create component instance
+                const parentTracking = this.juris.stateManager.currentTracking;
+                this.juris.stateManager.currentTracking = null;
+                const result = this.juris.componentManager.create(componentName, cleanProps);
+                this.juris.stateManager.currentTracking = parentTracking;
+                return result;
+            }
+
             // Skip component resolution in static mode
             if (!staticMode && this.juris.componentManager.components.has(tagName)) {
                 const parentTracking = this.juris.stateManager.currentTracking;
