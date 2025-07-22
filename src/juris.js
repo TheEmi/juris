@@ -1052,6 +1052,20 @@
                 return result;
             }
 
+            // Dynamic component discovery - check if component exists globally and auto-register
+            if (!staticMode && !this.juris.componentManager.components.has(tagName)) {
+                const dynamicComponent = this._tryDiscoverComponent(tagName);
+                if (dynamicComponent) {
+                    console.info(log.i('Dynamic component discovered and registered', { tagName }, 'framework'));
+                    this.juris.componentManager.register(tagName, dynamicComponent);
+                    const parentTracking = this.juris.stateManager.currentTracking;
+                    this.juris.stateManager.currentTracking = null;
+                    const result = this.juris.componentManager.create(tagName, props);
+                    this.juris.stateManager.currentTracking = parentTracking;
+                    return result;
+                }
+            }
+
             if (typeof tagName !== 'string' || tagName.length === 0) return null;
 
             if (staticMode) {
@@ -1073,6 +1087,51 @@
                 if (this.failureCount >= this.maxFailures) this.renderMode = 'fine-grained';
                 return this._createElementFineGrained(tagName, props);
             }
+        }
+
+        _tryDiscoverComponent(tagName) {
+            console.debug(log.d('Attempting to discover component', { tagName }, 'framework'));
+            
+            // Strategy 1: Check if component exists as a global variable
+            if (typeof window[tagName] === 'function') {
+                console.debug(log.d('Component found as global variable', { tagName }, 'framework'));
+                return window[tagName];
+            }
+            
+            // Strategy 2: Check for PascalCase to camelCase conversion
+            const camelCaseName = tagName.charAt(0).toLowerCase() + tagName.slice(1);
+            if (typeof window[camelCaseName] === 'function') {
+                console.debug(log.d('Component found as camelCase global variable', { tagName, camelCaseName }, 'framework'));
+                return window[camelCaseName];
+            }
+            
+            // Strategy 3: Check for component in a global components registry
+            if (window.JurisComponents && typeof window.JurisComponents[tagName] === 'function') {
+                console.debug(log.d('Component found in global registry', { tagName }, 'framework'));
+                return window.JurisComponents[tagName];
+            }
+            
+            // Strategy 4: Check for component in module exports (if using modules)
+            if (typeof window.exports === 'object' && typeof window.exports[tagName] === 'function') {
+                console.debug(log.d('Component found in module exports', { tagName }, 'framework'));
+                return window.exports[tagName];
+            }
+            
+            // Strategy 5: Try to auto-generate a simple wrapper component from DOM template
+            const template = document.querySelector(`template[data-component="${tagName}"]`);
+            if (template) {
+                console.debug(log.d('Component template found, auto-generating component', { tagName }, 'framework'));
+                return this._generateComponentFromTemplate(template);
+            }
+            
+            console.debug(log.d('Component not discoverable', { tagName }, 'framework'));
+            return null;
+        }
+
+        _generateComponentFromTemplate(template) {
+            const parsed = this.juris.templateCompiler.parseTemplate(template);
+            const componentCode = this.juris.templateCompiler.generateComponent(parsed);
+            return eval(`(${componentCode})`);
         }
 
         _createElementStatic(tagName, props) {
