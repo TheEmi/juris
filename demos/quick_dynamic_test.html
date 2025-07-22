@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Dynamic Component Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 2rem; }
+        .test-component { 
+            background: #e8f5e8; 
+            padding: 1rem; 
+            margin: 1rem 0; 
+            border-radius: 0.5rem;
+            border: 2px solid #4caf50;
+        }
+        .counter { 
+            background: #fff3cd; 
+            padding: 1rem; 
+            border-radius: 0.5rem;
+            text-align: center;
+            margin: 1rem 0;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            margin: 0.25rem;
+        }
+        .btn:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script src="../src/juris.js"></script>
+    <script>
+        // Define a global component that will be discovered dynamically
+        function SimpleCounter(props, { newState }) {
+            const [count, setCount] = newState('count', props.initial || 0);
+            
+            return {
+                div: {
+                    className: 'counter',
+                    children: [
+                        {
+                            h3: { text: props.title || 'Dynamic Counter' }
+                        },
+                        {
+                            p: { text: () => `Count: ${count()}` }
+                        },
+                        {
+                            button: {
+                                className: 'btn',
+                                text: '+',
+                                onclick: () => setCount(count() + 1)
+                            }
+                        },
+                        {
+                            button: {
+                                className: 'btn',
+                                text: '-',
+                                onclick: () => setCount(count() - 1)
+                            }
+                        }
+                    ]
+                }
+            };
+        }
+
+        // Another global component
+        function Welcome(props) {
+            return {
+                div: {
+                    className: 'test-component',
+                    children: [
+                        {
+                            h2: { text: props.message || 'Hello from Dynamic Component!' }
+                        },
+                        {
+                            p: { text: 'This component was discovered automatically!' }
+                        }
+                    ]
+                }
+            };
+        }
+
+        // Main app - will use components without pre-registering them
+        function TestApp() {
+            return {
+                div: {
+                    children: [
+                        {
+                            h1: { text: 'Dynamic Component Discovery Test' }
+                        },
+                        {
+                            p: { text: 'The components below are NOT pre-registered - they are discovered dynamically!' }
+                        },
+                        
+                        // These components will be discovered and registered automatically
+                        {
+                            Welcome: {
+                                _component: Welcome,
+                                message: 'Amazing! This works!'
+                            }
+                        },
+                        {
+                            SimpleCounter: {
+                                _component: SimpleCounter,
+                                title: 'Auto-Discovered Counter',
+                                initial: 10
+                            }
+                        },
+                        {
+                            SimpleCounter: {
+                                _component: SimpleCounter,
+                                title: 'Another Counter Instance',
+                                initial: 0
+                            }
+                        }
+                    ]
+                }
+            };
+        }
+
+        // Create Juris instance with NO components registered
+        const juris = new Juris({
+            components: {
+                // Only register the main app component
+                TestApp
+            },
+            layout: {
+                div: {
+                    children: [{ TestApp: {} }]
+                }
+            },
+        });
+
+        console.log('Initial registered components:', Array.from(juris.componentManager.components.keys()));
+
+        // Render the app
+        juris.render('#app');
+
+        // Check what components got registered after rendering
+        setTimeout(() => {
+            console.log('Components after rendering:', Array.from(juris.componentManager.components.keys()));
+        }, 100);
+
+        window.juris = juris;
+    </script>
+</body>
+</html>
